@@ -49,18 +49,21 @@ export class ZeroCostTransformer {
     }
 
     extractIterations(node: ts.Node) : ArrayIteration|boolean {
-        if (!ts.isCallExpression(node)) return false;
         let lastExp: ts.Node = node; 
-        const methods: Array<Iteration> = [];
         let getsLength = false;
+        if (ts.isPropertyAccessExpression(node) && node.name.text === "length") {
+            getsLength = true;
+            lastExp = node.expression;
+        }
+        if (!ts.isCallExpression(lastExp)) return false;
+        const methods: Array<Iteration> = [];
         while (lastExp) {
             if (ts.isCallExpression(lastExp)) {
                 const args = lastExp.arguments;
                 lastExp = lastExp.expression;
                 if (ts.isPropertyAccessExpression(lastExp)) {
                     const iterType = lastExp.name.text;
-                    if (iterType === "length") getsLength = true;
-                    else methods.push({
+                    methods.push({
                         type: stringToIterationType[iterType],
                         args
                     });
