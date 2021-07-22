@@ -46,11 +46,15 @@ export class ZeroCostTransformer {
     visitor(node: ts.Node) : ts.Node|Array<ts.Node>|undefined {
         if (ts.isExpressionStatement(node)) {
             const iter = this.extractIterations(node.expression);
-            if (iter) return build(iter, this);
+            if (iter) return build(iter, this)[0];
             return ts.visitEachChild(node, this.boundVisitor, this.ctx);
         } else {
             const iter = this.extractIterations(node);
-            if (iter) return this.ctx.factory.createImmediatelyInvokedArrowFunction(build(iter, this));
+            if (iter) {
+                const stmts = build(iter, this);
+                stmts[0].push(this.ctx.factory.createReturnStatement(stmts[1]));
+                return this.ctx.factory.createImmediatelyInvokedArrowFunction(stmts[0]);
+            }
             return ts.visitEachChild(node, this.boundVisitor, this.ctx);
         }
     }
@@ -78,7 +82,7 @@ export class ZeroCostTransformer {
                 const type = this.types.getTypeAtLocation(lastExp).symbol;
                 if (type.escapedName === "Array") {
                     return {
-                        iterations: methods,
+                        iterations: methods.reverse(),
                         array: lastExp,
                         getsLength
                     };
@@ -89,7 +93,7 @@ export class ZeroCostTransformer {
                 const type = this.types.getTypeAtLocation(lastExp).symbol;
                 if (type.escapedName === "Array") {
                     return {
-                        iterations: methods,
+                        iterations: methods.reverse(),
                         array: lastExp,
                         getsLength
                     };
