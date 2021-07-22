@@ -62,11 +62,9 @@ export class ZeroCostTransformer {
                 const args = lastExp.arguments;
                 lastExp = lastExp.expression;
                 if (ts.isPropertyAccessExpression(lastExp)) {
-                    const iterType = lastExp.name.text;
-                    methods.push({
-                        type: stringToIterationType[iterType],
-                        args
-                    });
+                    const type = stringToIterationType[lastExp.name.text];
+                    if (type === undefined) return false;
+                    methods.push({ type, args });
                 }
             }
             else if (ts.isPropertyAccessExpression(lastExp)) {
