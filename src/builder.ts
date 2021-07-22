@@ -14,11 +14,16 @@ export function build(arrIter: ArrayIteration, transformer: ZeroCostTransformer)
     const arrLen = factory.createUniqueName("arrLen");
     const item = factory.createUniqueName("arrItem");
     const resItem = factory.createUniqueName("res"); 
-    if (!arrIter.getsLength) factory.createVariableDeclaration(resItem, undefined, undefined, factory.createArrayLiteralExpression());
+    const isLastJoin = arrIter.iterations[arrIter.iterations.length - 1].type === IterationTypes.JOIN ? arrIter.iterations[arrIter.iterations.length - 1] : undefined;
+    let resInitializor;
+    if (isLastJoin) resInitializor = factory.createStringLiteral("");
+    else if (arrIter.getsLength) resInitializor = factory.createNumericLiteral(0);
+    else resInitializor = factory.createArrayLiteralExpression();
+
     res.push(factory.createVariableStatement(undefined, factory.createVariableDeclarationList([
         factory.createVariableDeclaration(arrLen, undefined, undefined, factory.createPropertyAccessExpression(arrIter.array, "length")),
         factory.createVariableDeclaration(item, undefined, undefined, undefined),
-        factory.createVariableDeclaration(resItem, undefined, undefined, !arrIter.getsLength ? factory.createArrayLiteralExpression():factory.createNumericLiteral(0)),
+        factory.createVariableDeclaration(resItem, undefined, undefined, resInitializor),
         factory.createVariableDeclaration(i, undefined, undefined, factory.createNumericLiteral(0))
     ])));
     const loop = factory.createForStatement(undefined,
@@ -45,18 +50,31 @@ export function build(arrIter: ArrayIteration, transformer: ZeroCostTransformer)
             case IterationTypes.FILTER: {
                 const fn = editFunctions(transformer, iter.args[0] as ts.ArrowFunction, i, item);
                 loopBody.push({ addedBy: IterationTypes.FILTER, statement: factory.createIfStatement(factory.createPrefixUnaryExpression(ts.SyntaxKind.ExclamationToken, fn), factory.createContinueStatement())});
+                break;
             }
         }
     }
-    if (arrIter.getsLength) {
+
+    let thingToPush: ts.Expression = item;
+    const lastStmt = loopBody[loopBody.length - 1]!;
+    if (lastStmt.addedBy === IterationTypes.MAP) {
+        loopBody.pop();
+        thingToPush = lastStmt!.fn!;
+    }
+
+    if (isLastJoin) {
+        loopBody.push({addedBy: IterationTypes.JOIN, statement: 
+            factory.createExpressionStatement(
+                factory.createBinaryExpression(resItem, ts.SyntaxKind.PlusEqualsToken, 
+                    factory.createBinaryExpression(thingToPush, ts.SyntaxKind.PlusToken, factory.createConditionalExpression(
+                        factory.createBinaryExpression(i, ts.SyntaxKind.EqualsEqualsEqualsToken, factory.createBinaryExpression(arrLen, ts.SyntaxKind.MinusToken, factory.createNumericLiteral(1))),
+                        undefined, factory.createStringLiteral(""), undefined, isLastJoin.args[0]
+                        )))
+                    )});
+    }
+    else if (arrIter.getsLength) {
         loopBody.push({addedBy: IterationTypes.DEFAULT, statement: factory.createExpressionStatement(factory.createPostfixIncrement(resItem))});
     } else {
-        let thingToPush: ts.Expression = item;
-        const lastStmt = loopBody[loopBody.length - 1]!;
-        if (lastStmt.addedBy === IterationTypes.MAP) {
-            loopBody.pop();
-            thingToPush = lastStmt!.fn!;
-        }
         loopBody.push({ addedBy: IterationTypes.DEFAULT, statement: factory.createExpressionStatement(factory.createCallExpression(
             factory.createPropertyAccessExpression(
               resItem,
