@@ -1,6 +1,8 @@
 import ts from "typescript";
+import {build} from "./builder";
 
 export const enum IterationTypes {
+    DEFAULT,
     FILTER,
     MAP,
     REDUCE,
@@ -23,14 +25,14 @@ export interface Iteration {
 
 export interface ArrayIteration {
     iterations: Array<Iteration>,
-    array: ts.Node,
+    array: ts.Expression,
     getsLength: boolean
 }
 
 export class ZeroCostTransformer {
     ctx: ts.TransformationContext
     types: ts.TypeChecker
-    boundVisitor: (node: ts.Node) => ts.Node|undefined
+    boundVisitor: (node: ts.Node) => ts.Node|Array<ts.Node>|undefined
     constructor(types: ts.TypeChecker, ctx: ts.TransformationContext) {
         this.types = types;
         this.ctx = ctx;
@@ -41,17 +43,20 @@ export class ZeroCostTransformer {
         return ts.visitNode(node, this.boundVisitor);
     }
 
-    visitor(node: ts.Node) : ts.Node|undefined {
-        const iter = this.extractIterations(node);
-        if (iter) {
-            console.log(iter);
-            return this.ctx.factory.createNull();
+    visitor(node: ts.Node) : ts.Node|Array<ts.Node>|undefined {
+        if (ts.isExpressionStatement(node)) {
+            const iter = this.extractIterations(node.expression);
+            if (iter) return build(iter, this);
+            return ts.visitEachChild(node, this.boundVisitor, this.ctx);
+        } else {
+            const iter = this.extractIterations(node);
+            if (iter) return this.ctx.factory.createImmediatelyInvokedArrowFunction(build(iter, this));
+            return ts.visitEachChild(node, this.boundVisitor, this.ctx);
         }
-        return ts.visitEachChild(node, this.boundVisitor, this.ctx);
     }
 
-    extractIterations(node: ts.Node) : ArrayIteration|boolean {
-        let lastExp: ts.Node = node; 
+    extractIterations(node: ts.Node) : ArrayIteration|false {
+        let lastExp: ts.Expression = node as ts.Expression; 
         let getsLength = false;
         if (ts.isPropertyAccessExpression(node) && node.name.text === "length") {
             getsLength = true;
