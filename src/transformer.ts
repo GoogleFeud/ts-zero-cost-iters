@@ -4,14 +4,16 @@ export const enum IterationTypes {
     FILTER,
     MAP,
     REDUCE,
-    FOREACH
+    FOREACH,
+    JOIN
 }
 
 const stringToIterationType: Record<string, IterationTypes> = {
     "filter": IterationTypes.FILTER,
     "map": IterationTypes.MAP,
     "reduce": IterationTypes.REDUCE,
-    "forEach": IterationTypes.FOREACH
+    "forEach": IterationTypes.FOREACH,
+    "join": IterationTypes.JOIN
 };
 
 export interface Iteration {
