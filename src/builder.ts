@@ -8,13 +8,13 @@ export interface LoopBodyEntry {
     statement: ts.ExpressionStatement|ts.Statement
 }
 
-export function build(arrIter: ArrayIteration, transformer: ZeroCostTransformer) : [Array<ts.Statement>, ts.Identifier] {
+export function build(arrIter: ArrayIteration, transformer: ZeroCostTransformer, defaultResItem?: ts.Identifier) : [Array<ts.Statement>, ts.Identifier] {
     const res: Array<ts.Statement> = [];
     const factory = transformer.ctx.factory;
     const i = factory.createUniqueName("i");
     const arrLen = factory.createUniqueName("arrLen");
     const item = factory.createUniqueName("arrItem");
-    const resItem = factory.createUniqueName("res"); 
+    const resItem = defaultResItem || factory.createUniqueName("res"); 
     const lastIter = arrIter.iterations[arrIter.iterations.length - 1];
     let resInitializor;
 

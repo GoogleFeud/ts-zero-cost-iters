@@ -1,5 +1,12 @@
 
-const array = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+import {performance} from "perf_hooks";
 
-const res = array.filter((el: number) => el % 2 === 0).map(el => (el * 2) + 1).reduce((acc, val) => acc + val, 0);
-console.log(res);
+
+const array = Array.from({length: 1000}, (_, item) => item + 1);
+
+
+
+const before = performance.now();
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const result = array.filter((el: number) => el % 2 === 0).length;
+console.log(performance.now() - before);

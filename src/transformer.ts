@@ -1,4 +1,4 @@
-import ts from "typescript";
+import ts, { createBuilderStatusReporter } from "typescript";
 import {build} from "./builder";
 
 export const enum IterationTypes {
@@ -44,6 +44,15 @@ export class ZeroCostTransformer {
     }
 
     visitor(node: ts.Node) : ts.Node|Array<ts.Node>|undefined {
+        if (ts.isVariableStatement(node) && node.declarationList.declarations.length === 1) {
+            const declaration = node.declarationList.declarations[0];
+            if (!declaration.initializer) return;
+            const iter = this.extractIterations(declaration.initializer);
+            if (iter) {
+                const built = build(iter, this, this.ctx.factory.createIdentifier(declaration.name.getText()));
+                return built[0];
+            }
+        }
         if (ts.isExpressionStatement(node)) {
             const iter = this.extractIterations(node.expression);
             if (iter) return build(iter, this)[0];
